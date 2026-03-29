@@ -26,6 +26,9 @@ pub fn build(b: *std.Build) void {
     const run_step = b.step("run", "Run the application");
     run_step.dependOn(&run_cmd.step);
 
+    // Tests are rooted at src/main.zig which @import's other source files.
+    // When adding tests in separate files, import them from main.zig or add
+    // dedicated addTest targets here to ensure they are picked up by `zig build test`.
     const test_mod = b.createModule(.{
         .root_source_file = b.path("src/main.zig"),
         .target = target,
