@@ -64,4 +64,25 @@ pub fn build(b: *std.Build) void {
 
     const run_size_tests = b.addRunArtifact(size_tests);
     test_step.dependOn(&run_size_tests.step);
+
+    // Time utility tests
+    const time_util_mod = b.createModule(.{
+        .root_source_file = b.path("src/utils/time.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+
+    const time_test_mod = b.createModule(.{
+        .root_source_file = b.path("tests/time_test.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    time_test_mod.addImport("../src/utils/time.zig", time_util_mod);
+
+    const time_tests = b.addTest(.{
+        .root_module = time_test_mod,
+    });
+
+    const run_time_tests = b.addRunArtifact(time_tests);
+    test_step.dependOn(&run_time_tests.step);
 }
