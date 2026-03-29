@@ -43,4 +43,25 @@ pub fn build(b: *std.Build) void {
 
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&run_exe_unit_tests.step);
+
+    // Size utility tests
+    const size_util_mod = b.createModule(.{
+        .root_source_file = b.path("src/utils/size.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+
+    const size_test_mod = b.createModule(.{
+        .root_source_file = b.path("tests/size_test.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    size_test_mod.addImport("../src/utils/size.zig", size_util_mod);
+
+    const size_tests = b.addTest(.{
+        .root_module = size_test_mod,
+    });
+
+    const run_size_tests = b.addRunArtifact(size_tests);
+    test_step.dependOn(&run_size_tests.step);
 }
