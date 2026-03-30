@@ -14,15 +14,23 @@ pub fn relativeTime(unix_ts: i64, buf: []u8) []const u8 {
         return "just now";
     } else if (diff < 3600) {
         const minutes = @divFloor(diff, 60);
-        return std.fmt.bufPrint(buf, "{d} minutes ago", .{minutes}) catch unreachable;
+        const s: []const u8 = if (minutes == 1) "" else "s";
+        return std.fmt.bufPrint(buf, "{d} minute{s} ago", .{ minutes, s }) catch unreachable;
     } else if (diff < 86400) {
         const hours = @divFloor(diff, 3600);
-        return std.fmt.bufPrint(buf, "{d} hours ago", .{hours}) catch unreachable;
+        const s: []const u8 = if (hours == 1) "" else "s";
+        return std.fmt.bufPrint(buf, "{d} hour{s} ago", .{ hours, s }) catch unreachable;
     } else if (diff < 2592000) {
         const days = @divFloor(diff, 86400);
-        return std.fmt.bufPrint(buf, "{d} days ago", .{days}) catch unreachable;
-    } else {
+        const s: []const u8 = if (days == 1) "" else "s";
+        return std.fmt.bufPrint(buf, "{d} day{s} ago", .{ days, s }) catch unreachable;
+    } else if (diff < 31536000) {
         const months = @divFloor(diff, 2592000);
-        return std.fmt.bufPrint(buf, "{d} months ago", .{months}) catch unreachable;
+        const s: []const u8 = if (months == 1) "" else "s";
+        return std.fmt.bufPrint(buf, "{d} month{s} ago", .{ months, s }) catch unreachable;
+    } else {
+        const years = @divFloor(diff, 31536000);
+        const s: []const u8 = if (years == 1) "" else "s";
+        return std.fmt.bufPrint(buf, "{d} year{s} ago", .{ years, s }) catch unreachable;
     }
 }
