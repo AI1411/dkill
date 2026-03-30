@@ -5,19 +5,31 @@ pub const DockerClient = struct {
     allocator: std.mem.Allocator,
     socket_path: []const u8,
 
-    pub fn init(allocator: std.mem.Allocator) DockerClient {
+    pub fn init(allocator: std.mem.Allocator, socket_path: []const u8) DockerClient {
         return .{
             .allocator = allocator,
-            .socket_path = "/var/run/docker.sock",
+            .socket_path = socket_path,
         };
     }
 
     /// GET リクエストを送信し、レスポンスボディを返す。
+    /// raw バッファを再利用してボディ部分だけを返すため、余分なコピーを行わない。
     /// 返り値はアロケータで確保されたスライス。呼び出し元が解放する必要がある。
-    pub fn get(self: *DockerClient, path: []const u8) ![]const u8 {
+    pub fn get(self: *DockerClient, path: []const u8) ![]u8 {
         const raw = try self.sendRequest("GET", path);
-        defer self.allocator.free(raw);
-        return try parseHttpResponse(self.allocator, raw);
+        errdefer self.allocator.free(raw);
+
+        const status_code = try parseStatusCode(raw);
+        if (status_code < 200 or status_code >= 300) return error.HttpError;
+
+        const header_end = std.mem.indexOf(u8, raw, "\r\n\r\n") orelse return error.InvalidResponse;
+        const body_start = header_end + 4;
+        const body_len = raw.len - body_start;
+
+        if (body_len > 0) {
+            std.mem.copyForwards(u8, raw[0..body_len], raw[body_start..]);
+        }
+        return self.allocator.realloc(raw, body_len);
     }
 
     /// DELETE リクエストを送信し、ステータスコードを返す。

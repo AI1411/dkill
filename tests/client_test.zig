@@ -55,14 +55,13 @@ test "parseHttpResponse handles 204 No Content as success" {
 // SKIP_DOCKER_TESTS=1 で Docker 未起動環境でもスキップ可能
 
 test "DockerClient.get /v1.45/version succeeds" {
-    const skip = std.process.getEnvVarOwned(std.testing.allocator, "SKIP_DOCKER_TESTS") catch null;
-    if (skip) |s| {
-        defer std.testing.allocator.free(s);
-        if (std.mem.eql(u8, s, "1")) return;
-    }
+    if (std.posix.getenv("SKIP_DOCKER_TESTS") != null) return error.SkipZigTest;
 
-    var docker_client = client.DockerClient.init(std.testing.allocator);
-    const body = try docker_client.get("/v1.45/version");
+    var docker_client = client.DockerClient.init(std.testing.allocator, "/var/run/docker.sock");
+    const body = docker_client.get("/v1.45/version") catch |err| switch (err) {
+        error.FileNotFound, error.PermissionDenied, error.ConnectionRefused => return error.SkipZigTest,
+        else => return err,
+    };
     defer std.testing.allocator.free(body);
 
     try std.testing.expect(body.len > 0);
