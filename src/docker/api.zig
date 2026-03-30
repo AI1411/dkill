@@ -25,10 +25,10 @@ pub const DockerApi = struct {
         return parseContainers(self.allocator, body);
     }
 
-    /// イメージ一覧取得。
+    /// イメージ一覧取得（all=true で中間イメージも含む）。
     /// 返り値のスライスおよび各フィールドの文字列は呼び出し元が解放する必要がある。
     pub fn listImages(self: *DockerApi) ![]types.Image {
-        const body = try self.c.get("/" ++ API_VERSION ++ "/images/json");
+        const body = try self.c.get("/" ++ API_VERSION ++ "/images/json?all=true");
         defer self.allocator.free(body);
         return parseImages(self.allocator, body);
     }
@@ -99,18 +99,48 @@ pub fn parseContainers(allocator: std.mem.Allocator, body: []const u8) ![]types.
     defer parsed.deinit();
 
     const result = try allocator.alloc(types.Container, parsed.value.len);
-    for (parsed.value, 0..) |c, i| {
-        const names = try allocator.alloc([]const u8, c.Names.len);
-        for (c.Names, 0..) |name, j| {
-            names[j] = try allocator.dupe(u8, name);
+    var count: usize = 0;
+    errdefer {
+        for (result[0..count]) |c| {
+            allocator.free(c.Id);
+            allocator.free(c.Image);
+            allocator.free(c.State);
+            allocator.free(c.Status);
+            for (c.Names) |name| allocator.free(name);
+            allocator.free(c.Names);
         }
-        result[i] = types.Container{
-            .Id = try allocator.dupe(u8, c.Id),
+        allocator.free(result);
+    }
+
+    for (parsed.value) |c| {
+        const names = try allocator.alloc([]const u8, c.Names.len);
+        var nc: usize = 0;
+        errdefer {
+            for (names[0..nc]) |name| allocator.free(name);
+            allocator.free(names);
+        }
+        for (c.Names) |name| {
+            names[nc] = try allocator.dupe(u8, name);
+            nc += 1;
+        }
+
+        const id = try allocator.dupe(u8, c.Id);
+        errdefer allocator.free(id);
+        const image = try allocator.dupe(u8, c.Image);
+        errdefer allocator.free(image);
+        const state = try allocator.dupe(u8, c.State);
+        errdefer allocator.free(state);
+        const status = try allocator.dupe(u8, c.Status);
+        errdefer allocator.free(status);
+
+        result[count] = types.Container{
+            .Id = id,
             .Names = names,
-            .Image = try allocator.dupe(u8, c.Image),
-            .State = try allocator.dupe(u8, c.State),
-            .Status = try allocator.dupe(u8, c.Status),
+            .Image = image,
+            .State = state,
+            .Status = status,
         };
+        count += 1;
     }
     return result;
 }
@@ -124,16 +154,37 @@ pub fn parseImages(allocator: std.mem.Allocator, body: []const u8) ![]types.Imag
     defer parsed.deinit();
 
     const result = try allocator.alloc(types.Image, parsed.value.len);
-    for (parsed.value, 0..) |img, i| {
-        const tags = try allocator.alloc([]const u8, img.RepoTags.len);
-        for (img.RepoTags, 0..) |tag, j| {
-            tags[j] = try allocator.dupe(u8, tag);
+    var count: usize = 0;
+    errdefer {
+        for (result[0..count]) |img| {
+            allocator.free(img.Id);
+            for (img.RepoTags) |tag| allocator.free(tag);
+            allocator.free(img.RepoTags);
         }
-        result[i] = types.Image{
-            .Id = try allocator.dupe(u8, img.Id),
+        allocator.free(result);
+    }
+
+    for (parsed.value) |img| {
+        const tags = try allocator.alloc([]const u8, img.RepoTags.len);
+        var tc: usize = 0;
+        errdefer {
+            for (tags[0..tc]) |tag| allocator.free(tag);
+            allocator.free(tags);
+        }
+        for (img.RepoTags) |tag| {
+            tags[tc] = try allocator.dupe(u8, tag);
+            tc += 1;
+        }
+
+        const id = try allocator.dupe(u8, img.Id);
+        errdefer allocator.free(id);
+
+        result[count] = types.Image{
+            .Id = id,
             .RepoTags = tags,
             .Size = img.Size,
         };
+        count += 1;
     }
     return result;
 }
@@ -151,13 +202,31 @@ pub fn parseVolumes(allocator: std.mem.Allocator, body: []const u8) ![]types.Vol
     defer parsed.deinit();
 
     const result = try allocator.alloc(types.Volume, parsed.value.Volumes.len);
-    for (parsed.value.Volumes, 0..) |v, i| {
-        result[i] = types.Volume{
-            .Name = try allocator.dupe(u8, v.Name),
-            .Driver = try allocator.dupe(u8, v.Driver),
-            .Mountpoint = try allocator.dupe(u8, v.Mountpoint),
+    var count: usize = 0;
+    errdefer {
+        for (result[0..count]) |v| {
+            allocator.free(v.Name);
+            allocator.free(v.Driver);
+            allocator.free(v.Mountpoint);
+        }
+        allocator.free(result);
+    }
+
+    for (parsed.value.Volumes) |v| {
+        const name = try allocator.dupe(u8, v.Name);
+        errdefer allocator.free(name);
+        const driver = try allocator.dupe(u8, v.Driver);
+        errdefer allocator.free(driver);
+        const mountpoint = try allocator.dupe(u8, v.Mountpoint);
+        errdefer allocator.free(mountpoint);
+
+        result[count] = types.Volume{
+            .Name = name,
+            .Driver = driver,
+            .Mountpoint = mountpoint,
             .UsageData = v.UsageData,
         };
+        count += 1;
     }
     return result;
 }
