@@ -2,9 +2,9 @@ const std = @import("std");
 const commands = @import("../src/cli/commands.zig");
 
 // ─── parse: 引数なし ────────────────────────────────────────
-test "parse: no args returns help" {
+test "parse: no args returns tui" {
     const result = try commands.parse(&.{"dkill"});
-    try std.testing.expect(result == .help);
+    try std.testing.expect(result == .tui);
 }
 
 // ─── parse: containers ──────────────────────────────────────
@@ -78,6 +78,66 @@ test "parse: volumes --orphaned --json" {
     try std.testing.expect(result.volumes.json);
 }
 
+// ─── parse: df ──────────────────────────────────────────────
+test "parse: df command" {
+    const result = try commands.parse(&.{ "dkill", "df" });
+    try std.testing.expect(result == .df);
+}
+
+test "parse: df with unknown flag returns error" {
+    try std.testing.expectError(
+        error.UnknownFlag,
+        commands.parse(&.{ "dkill", "df", "--bad" }),
+    );
+}
+
+// ─── parse: prune ────────────────────────────────────────────
+test "parse: prune no flags" {
+    const result = try commands.parse(&.{ "dkill", "prune" });
+    try std.testing.expect(result == .prune);
+    try std.testing.expect(!result.prune.containers);
+    try std.testing.expect(!result.prune.images_dangling);
+    try std.testing.expect(!result.prune.volumes_orphaned);
+    try std.testing.expect(!result.prune.all);
+    try std.testing.expect(!result.prune.yes);
+    try std.testing.expect(!result.prune.dry_run);
+}
+
+test "parse: prune --all --yes --dry-run" {
+    const result = try commands.parse(&.{ "dkill", "prune", "--all", "--yes", "--dry-run" });
+    try std.testing.expect(result == .prune);
+    try std.testing.expect(result.prune.all);
+    try std.testing.expect(result.prune.yes);
+    try std.testing.expect(result.prune.dry_run);
+}
+
+test "parse: prune --containers" {
+    const result = try commands.parse(&.{ "dkill", "prune", "--containers" });
+    try std.testing.expect(result == .prune);
+    try std.testing.expect(result.prune.containers);
+    try std.testing.expect(!result.prune.images_dangling);
+    try std.testing.expect(!result.prune.volumes_orphaned);
+}
+
+test "parse: prune --images-dangling" {
+    const result = try commands.parse(&.{ "dkill", "prune", "--images-dangling" });
+    try std.testing.expect(result == .prune);
+    try std.testing.expect(result.prune.images_dangling);
+}
+
+test "parse: prune --volumes-orphaned" {
+    const result = try commands.parse(&.{ "dkill", "prune", "--volumes-orphaned" });
+    try std.testing.expect(result == .prune);
+    try std.testing.expect(result.prune.volumes_orphaned);
+}
+
+test "parse: prune unknown flag returns error" {
+    try std.testing.expectError(
+        error.UnknownFlag,
+        commands.parse(&.{ "dkill", "prune", "--bad-flag" }),
+    );
+}
+
 // ─── parse: help ────────────────────────────────────────────
 test "parse: help command" {
     const result = try commands.parse(&.{ "dkill", "help" });
@@ -125,7 +185,7 @@ test "parse: unknown flag for volumes returns error" {
 
 // ─── printUsage ─────────────────────────────────────────────
 test "printUsage writes usage text" {
-    var buf: [2048]u8 = undefined;
+    var buf: [4096]u8 = undefined;
     var fbs = std.io.fixedBufferStream(&buf);
     try commands.printUsage(fbs.writer());
     const written = fbs.getWritten();
@@ -133,4 +193,6 @@ test "printUsage writes usage text" {
     try std.testing.expect(std.mem.indexOf(u8, written, "containers") != null);
     try std.testing.expect(std.mem.indexOf(u8, written, "images") != null);
     try std.testing.expect(std.mem.indexOf(u8, written, "volumes") != null);
+    try std.testing.expect(std.mem.indexOf(u8, written, "df") != null);
+    try std.testing.expect(std.mem.indexOf(u8, written, "prune") != null);
 }

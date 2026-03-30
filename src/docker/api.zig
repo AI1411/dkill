@@ -88,6 +88,14 @@ pub const DockerApi = struct {
         const status = try self.c.delete(path);
         if (status != 204) return error.DeleteFailed;
     }
+
+    /// システムディスク使用量取得。
+    /// 返り値のスライスおよび各フィールドの文字列は呼び出し元が解放する必要がある。
+    pub fn getDiskUsage(self: *DockerApi) !types.DiskUsage {
+        const body = try self.c.get("/" ++ API_VERSION ++ "/system/df");
+        defer self.allocator.free(body);
+        return parseDiskUsage(self.allocator, body);
+    }
 };
 
 /// GET /v1.45/containers/json のレスポンス JSON を []types.Container にパースする。
@@ -192,6 +200,137 @@ pub fn parseImages(allocator: std.mem.Allocator, body: []const u8) ![]types.Imag
 const VolumesResponse = struct {
     Volumes: []const types.Volume,
 };
+
+/// GET /v1.45/system/df のレスポンス JSON を types.DiskUsage にパースする。
+/// 返り値の各フィールド文字列は allocator で確保されているため、freeDiskUsage で解放する必要がある。
+pub fn parseDiskUsage(allocator: std.mem.Allocator, body: []const u8) !types.DiskUsage {
+    const parsed = try std.json.parseFromSlice(types.DiskUsage, allocator, body, .{
+        .ignore_unknown_fields = true,
+    });
+    defer parsed.deinit();
+
+    const v = parsed.value;
+
+    // Containers をディープコピー
+    const containers = try allocator.alloc(types.Container, v.Containers.len);
+    var ci: usize = 0;
+    errdefer {
+        for (containers[0..ci]) |c| {
+            allocator.free(c.Id);
+            allocator.free(c.Image);
+            allocator.free(c.State);
+            allocator.free(c.Status);
+            for (c.Names) |name| allocator.free(name);
+            allocator.free(c.Names);
+        }
+        allocator.free(containers);
+    }
+    for (v.Containers) |c| {
+        const names = try allocator.alloc([]const u8, c.Names.len);
+        var nc: usize = 0;
+        errdefer {
+            for (names[0..nc]) |n| allocator.free(n);
+            allocator.free(names);
+        }
+        for (c.Names) |n| {
+            names[nc] = try allocator.dupe(u8, n);
+            nc += 1;
+        }
+        containers[ci] = .{
+            .Id = try allocator.dupe(u8, c.Id),
+            .Names = names,
+            .Image = try allocator.dupe(u8, c.Image),
+            .State = try allocator.dupe(u8, c.State),
+            .Status = try allocator.dupe(u8, c.Status),
+        };
+        ci += 1;
+    }
+
+    // Images をディープコピー
+    const images = try allocator.alloc(types.Image, v.Images.len);
+    var ii: usize = 0;
+    errdefer {
+        for (images[0..ii]) |img| {
+            allocator.free(img.Id);
+            for (img.RepoTags) |tag| allocator.free(tag);
+            allocator.free(img.RepoTags);
+        }
+        allocator.free(images);
+    }
+    for (v.Images) |img| {
+        const tags = try allocator.alloc([]const u8, img.RepoTags.len);
+        var tc: usize = 0;
+        errdefer {
+            for (tags[0..tc]) |tag| allocator.free(tag);
+            allocator.free(tags);
+        }
+        for (img.RepoTags) |tag| {
+            tags[tc] = try allocator.dupe(u8, tag);
+            tc += 1;
+        }
+        images[ii] = .{
+            .Id = try allocator.dupe(u8, img.Id),
+            .RepoTags = tags,
+            .Size = img.Size,
+        };
+        ii += 1;
+    }
+
+    // Volumes をディープコピー
+    const volumes = try allocator.alloc(types.Volume, v.Volumes.len);
+    var vi: usize = 0;
+    errdefer {
+        for (volumes[0..vi]) |vol| {
+            allocator.free(vol.Name);
+            allocator.free(vol.Driver);
+            allocator.free(vol.Mountpoint);
+        }
+        allocator.free(volumes);
+    }
+    for (v.Volumes) |vol| {
+        volumes[vi] = .{
+            .Name = try allocator.dupe(u8, vol.Name),
+            .Driver = try allocator.dupe(u8, vol.Driver),
+            .Mountpoint = try allocator.dupe(u8, vol.Mountpoint),
+            .UsageData = vol.UsageData,
+        };
+        vi += 1;
+    }
+
+    return types.DiskUsage{
+        .LayersSize = v.LayersSize,
+        .Containers = containers,
+        .Images = images,
+        .Volumes = volumes,
+    };
+}
+
+/// parseDiskUsage で確保したメモリを解放する。
+pub fn freeDiskUsage(allocator: std.mem.Allocator, usage: types.DiskUsage) void {
+    for (usage.Containers) |c| {
+        allocator.free(c.Id);
+        allocator.free(c.Image);
+        allocator.free(c.State);
+        allocator.free(c.Status);
+        for (c.Names) |name| allocator.free(name);
+        allocator.free(c.Names);
+    }
+    allocator.free(usage.Containers);
+
+    for (usage.Images) |img| {
+        allocator.free(img.Id);
+        for (img.RepoTags) |tag| allocator.free(tag);
+        allocator.free(img.RepoTags);
+    }
+    allocator.free(usage.Images);
+
+    for (usage.Volumes) |vol| {
+        allocator.free(vol.Name);
+        allocator.free(vol.Driver);
+        allocator.free(vol.Mountpoint);
+    }
+    allocator.free(usage.Volumes);
+}
 
 /// GET /v1.45/volumes のレスポンス JSON を []types.Volume にパースする。
 /// 返り値の各フィールド文字列は allocator で確保されているため、呼び出し元が解放する必要がある。
