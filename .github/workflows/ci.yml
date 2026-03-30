@@ -13,11 +13,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Zig 0.15.0
+      - name: Install Zig 0.15.2
         run: |
-          wget -q https://ziglang.org/download/0.15.0/zig-linux-x86_64-0.15.0.tar.xz
-          tar -xf zig-linux-x86_64-0.15.0.tar.xz
-          echo "$PWD/zig-linux-x86_64-0.15.0" >> $GITHUB_PATH
+          wget -q https://ziglang.org/download/0.15.2/zig-linux-x86_64-0.15.2.tar.xz
+          tar -xf zig-linux-x86_64-0.15.2.tar.xz
+          echo "$PWD/zig-linux-x86_64-0.15.2" >> $GITHUB_PATH
 
       - name: Build
         run: zig build
