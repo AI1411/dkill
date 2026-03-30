@@ -13,10 +13,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Zig 0.15.x
+      - name: Install Zig
         uses: mlugg/setup-zig@v1
         with:
-          version: 0.15.2
+          version: master
 
       - name: Build
         run: zig build
