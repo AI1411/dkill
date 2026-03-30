@@ -39,7 +39,7 @@ test "drawTabBar highlights active tab with bold" {
 test "drawListItem includes item text" {
     var buf: [512]u8 = undefined;
     var fbs = std.io.fixedBufferStream(&buf);
-    try render.drawListItem(fbs.writer(), false, false, "my-container  nginx  running", 80);
+    try render.drawListItem(fbs.writer(), false, false, true, .normal, "my-container  nginx  running", 80);
     const out = fbs.getWritten();
     try std.testing.expect(std.mem.indexOf(u8, out, "my-container") != null);
 }
@@ -47,7 +47,7 @@ test "drawListItem includes item text" {
 test "drawListItem shows checkbox unchecked" {
     var buf: [512]u8 = undefined;
     var fbs = std.io.fixedBufferStream(&buf);
-    try render.drawListItem(fbs.writer(), false, false, "item", 80);
+    try render.drawListItem(fbs.writer(), false, false, true, .normal, "item", 80);
     const out = fbs.getWritten();
     try std.testing.expect(std.mem.indexOf(u8, out, "[ ]") != null);
 }
@@ -55,7 +55,7 @@ test "drawListItem shows checkbox unchecked" {
 test "drawListItem shows checkbox checked" {
     var buf: [512]u8 = undefined;
     var fbs = std.io.fixedBufferStream(&buf);
-    try render.drawListItem(fbs.writer(), true, false, "item", 80);
+    try render.drawListItem(fbs.writer(), true, false, true, .normal, "item", 80);
     const out = fbs.getWritten();
     try std.testing.expect(std.mem.indexOf(u8, out, "[x]") != null);
 }

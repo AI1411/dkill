@@ -73,6 +73,21 @@ pub const DockerClient = struct {
     }
 };
 
+/// テスト用: 生の HTTP レスポンス文字列を解析してボディを返す。
+pub fn parseHttpResponse(allocator: std.mem.Allocator, raw: []const u8) ![]u8 {
+    const status_code = try parseStatusCode(raw);
+    if (status_code < 200 or status_code >= 300) return error.HttpError;
+
+    const header_end = std.mem.indexOf(u8, raw, "\r\n\r\n") orelse return error.InvalidResponse;
+    const headers = raw[0..header_end];
+    const body_raw = raw[header_end + 4 ..];
+
+    if (isChunked(headers)) {
+        return try decodeChunked(allocator, body_raw);
+    }
+    return try allocator.dupe(u8, body_raw);
+}
+
 /// HTTP レスポンスが完結しているか判定する。
 /// Content-Length があれば必要バイト数、chunked なら終端マーカーで判断する。
 fn isResponseComplete(data: []const u8) bool {
