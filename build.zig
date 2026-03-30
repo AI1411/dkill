@@ -85,4 +85,25 @@ pub fn build(b: *std.Build) void {
 
     const run_time_tests = b.addRunArtifact(time_tests);
     test_step.dependOn(&run_time_tests.step);
+
+    // Docker types tests
+    const docker_types_mod = b.createModule(.{
+        .root_source_file = b.path("src/docker/types.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+
+    const docker_types_test_mod = b.createModule(.{
+        .root_source_file = b.path("tests/docker_types_test.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    docker_types_test_mod.addImport("../src/docker/types.zig", docker_types_mod);
+
+    const docker_types_tests = b.addTest(.{
+        .root_module = docker_types_test_mod,
+    });
+
+    const run_docker_types_tests = b.addRunArtifact(docker_types_tests);
+    test_step.dependOn(&run_docker_types_tests.step);
 }
