@@ -1,0 +1,25 @@
+{
+  "Volumes": [
+    {
+      "Name": "active-volume",
+      "Driver": "local",
+      "Mountpoint": "/var/lib/docker/volumes/active-volume/_data",
+      "Labels": {},
+      "UsageData": {
+        "RefCount": 1,
+        "Size": 10240
+      }
+    },
+    {
+      "Name": "unused-volume",
+      "Driver": "local",
+      "Mountpoint": "/var/lib/docker/volumes/unused-volume/_data",
+      "Labels": {},
+      "UsageData": {
+        "RefCount": 0,
+        "Size": 0
+      }
+    }
+  ],
+  "Warnings": []
+}

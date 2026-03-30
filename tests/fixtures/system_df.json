@@ -1,0 +1,34 @@
+{
+  "LayersSize": 312456789,
+  "Containers": [
+    {
+      "Id": "abc123def456789xyz0000000000000000000000000000000000000000000000",
+      "Names": ["/my-nginx"],
+      "Image": "nginx:latest",
+      "State": "running",
+      "Status": "Up 2 hours",
+      "SizeRw": 0,
+      "SizeRootFs": 142123456
+    }
+  ],
+  "Images": [
+    {
+      "Id": "sha256:abc123def456789xyz0000000000000000000000000000000000000000000000",
+      "RepoTags": ["nginx:latest"],
+      "Size": 142123456,
+      "SharedSize": 0,
+      "Containers": 1
+    }
+  ],
+  "Volumes": [
+    {
+      "Name": "active-volume",
+      "Driver": "local",
+      "Mountpoint": "/var/lib/docker/volumes/active-volume/_data",
+      "UsageData": {
+        "RefCount": 1,
+        "Size": 10240
+      }
+    }
+  ]
+}

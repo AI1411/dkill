@@ -1,0 +1,16 @@
+[
+  {
+    "Id": "abc123def456789xyz0000000000000000000000000000000000000000000000",
+    "Names": ["/my-nginx"],
+    "Image": "nginx:latest",
+    "State": "running",
+    "Status": "Up 2 hours"
+  },
+  {
+    "Id": "dead0000beef1111cafe2222face3333babe4444fade5555b00c6666cafe7777",
+    "Names": ["/stopped-app"],
+    "Image": "node:18",
+    "State": "exited",
+    "Status": "Exited (0) 5 minutes ago"
+  }
+]
