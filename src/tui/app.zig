@@ -6,6 +6,40 @@ const list_mod = @import("list.zig");
 const render = @import("render.zig");
 const input = @import("input.zig");
 
+/// 並列ロード用の結果バッファ。
+const LoadResult = struct {
+    containers: []types.Container = &.{},
+    images: []types.Image = &.{},
+    volumes: []types.Volume = &.{},
+    container_err: ?anyerror = null,
+    image_err: ?anyerror = null,
+    volume_err: ?anyerror = null,
+};
+
+fn loadContainersWorker(allocator: std.mem.Allocator, socket_path: []const u8, result: *LoadResult) void {
+    var docker = api.DockerApi.init(allocator, socket_path);
+    result.containers = docker.listContainers() catch |err| blk: {
+        result.container_err = err;
+        break :blk &.{};
+    };
+}
+
+fn loadImagesWorker(allocator: std.mem.Allocator, socket_path: []const u8, result: *LoadResult) void {
+    var docker = api.DockerApi.init(allocator, socket_path);
+    result.images = docker.listImages() catch |err| blk: {
+        result.image_err = err;
+        break :blk &.{};
+    };
+}
+
+fn loadVolumesWorker(allocator: std.mem.Allocator, socket_path: []const u8, result: *LoadResult) void {
+    var docker = api.DockerApi.init(allocator, socket_path);
+    result.volumes = docker.listVolumes() catch |err| blk: {
+        result.volume_err = err;
+        break :blk &.{};
+    };
+}
+
 /// TUI のモード。
 pub const AppMode = enum {
     normal,
@@ -76,14 +110,31 @@ pub const App = struct {
         self.freeLists();
     }
 
-    /// Docker API からデータを取得してリストを構築する。
+    /// Docker API からデータを取得してリストを構築する（3エンドポイントを並列取得）。
     pub fn loadData(self: *App) !void {
         self.freeLists();
 
-        var docker = api.DockerApi.init(self.allocator, self.socket_path);
+        // スレッドセーフなアロケータでラップして並列取得
+        var ts_alloc = std.heap.ThreadSafeAllocator{ .child_allocator = self.allocator };
+        const ts = ts_alloc.allocator();
 
-        // コンテナ
-        self.containers = try docker.listContainers();
+        var lr = LoadResult{};
+        const t1 = try std.Thread.spawn(.{}, loadContainersWorker, .{ ts, self.socket_path, &lr });
+        const t2 = try std.Thread.spawn(.{}, loadImagesWorker, .{ ts, self.socket_path, &lr });
+        const t3 = try std.Thread.spawn(.{}, loadVolumesWorker, .{ ts, self.socket_path, &lr });
+        t1.join();
+        t2.join();
+        t3.join();
+
+        if (lr.container_err) |err| return err;
+        if (lr.image_err) |err| return err;
+        if (lr.volume_err) |err| return err;
+
+        self.containers = lr.containers;
+        self.images = lr.images;
+        self.volumes = lr.volumes;
+
+        // コンテナ UI アイテムを構築
         self.container_items = try self.allocator.alloc(list_mod.SelectableItem, self.containers.len);
         self.container_labels = try self.allocator.alloc([]u8, self.containers.len);
         for (self.containers, 0..) |c, i| {
@@ -99,12 +150,12 @@ pub const App = struct {
                 .label = label,
                 .deletable = !c.isRunning(),
                 .selected = false,
+                .status = if (c.isRunning()) .running else .exited,
             };
         }
         self.container_list = list_mod.List.init(self.container_items, 20);
 
-        // イメージ
-        self.images = try docker.listImages();
+        // イメージ UI アイテムを構築
         self.image_items = try self.allocator.alloc(list_mod.SelectableItem, self.images.len);
         self.image_labels = try self.allocator.alloc([]u8, self.images.len);
         for (self.images, 0..) |img, i| {
@@ -121,12 +172,12 @@ pub const App = struct {
                 .label = label,
                 .deletable = true,
                 .selected = false,
+                .status = if (img.isDangling()) .warning else .normal,
             };
         }
         self.image_list = list_mod.List.init(self.image_items, 20);
 
-        // ボリューム
-        self.volumes = try docker.listVolumes();
+        // ボリューム UI アイテムを構築
         self.volume_items = try self.allocator.alloc(list_mod.SelectableItem, self.volumes.len);
         self.volume_labels = try self.allocator.alloc([]u8, self.volumes.len);
         for (self.volumes, 0..) |v, i| {
@@ -141,6 +192,7 @@ pub const App = struct {
                 .label = label,
                 .deletable = v.isOrphaned(),
                 .selected = false,
+                .status = if (v.isOrphaned()) .warning else .normal,
             };
         }
         self.volume_list = list_mod.List.init(self.volume_items, 20);
@@ -281,6 +333,14 @@ pub const App = struct {
             .volumes => 2,
         };
         try render.drawTabBar(w, &tab_names, active_idx, cols);
+
+        // カラムヘッダー
+        const header_text = switch (self.current_tab) {
+            .containers => "ID              NAME                            STATE       IMAGE",
+            .images => "ID              TAG                             SIZE",
+            .volumes => "NAME                            DRIVER",
+        };
+        try render.drawColumnHeader(w, header_text, cols);
 
         // リスト
         try self.currentList().draw(w, cols);

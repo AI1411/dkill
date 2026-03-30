@@ -104,7 +104,7 @@ pub fn build(b: *std.Build) void {
     cli_json_mod.addImport("../docker/types.zig", docker_types_mod);
 
     const exe = b.addExecutable(.{
-        .name = "dkill",
+        .name = "dk",
         .root_module = b.createModule(.{
             .root_source_file = b.path("src/main.zig"),
             .target = target,

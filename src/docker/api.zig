@@ -20,7 +20,7 @@ pub const DockerApi = struct {
     /// コンテナ一覧取得（all=true で停止コンテナも含む）。
     /// 返り値のスライスおよび各フィールドの文字列は呼び出し元が解放する必要がある。
     pub fn listContainers(self: *DockerApi) ![]types.Container {
-        const body = try self.c.get("/" ++ API_VERSION ++ "/containers/json?all=true&size=true");
+        const body = try self.c.get("/" ++ API_VERSION ++ "/containers/json?all=true");
         defer self.allocator.free(body);
         return parseContainers(self.allocator, body);
     }

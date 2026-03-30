@@ -13,10 +13,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Zig 0.15.x
-        uses: mlugg/setup-zig@v1
-        with:
-          version: 0.15.0
+      - name: Install Zig 0.15.2
+        run: |
+          wget -q https://ziglang.org/download/0.15.2/zig-x86_64-linux-0.15.2.tar.xz
+          tar -xf zig-x86_64-linux-0.15.2.tar.xz
+          echo "$PWD/zig-x86_64-linux-0.15.2" >> $GITHUB_PATH
 
       - name: Build
         run: zig build
@@ -29,7 +30,7 @@ jobs:
 
       - name: Check binary size (< 1MB)
         run: |
-          SIZE=$(stat -c%s zig-out/bin/dkill)
+          SIZE=$(stat -c%s zig-out/bin/dk)
           echo "Binary size: ${SIZE} bytes"
           if [ "${SIZE}" -ge 1048576 ]; then
             echo "ERROR: Binary size ${SIZE} bytes exceeds 1MB limit"
