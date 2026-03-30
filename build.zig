@@ -4,6 +4,40 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
+    // ─── モジュール定義 ───────────────────────────────────────
+    const docker_types_mod = b.createModule(.{
+        .root_source_file = b.path("src/docker/types.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+
+    const docker_client_mod = b.createModule(.{
+        .root_source_file = b.path("src/docker/client.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+
+    const docker_api_mod = b.createModule(.{
+        .root_source_file = b.path("src/docker/api.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    docker_api_mod.addImport("client.zig", docker_client_mod);
+    docker_api_mod.addImport("types.zig", docker_types_mod);
+
+    const size_util_mod = b.createModule(.{
+        .root_source_file = b.path("src/utils/size.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+
+    const time_util_mod = b.createModule(.{
+        .root_source_file = b.path("src/utils/time.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+
+    // ─── 実行ファイル ─────────────────────────────────────────
     const exe_mod = b.createModule(.{
         .root_source_file = b.path("src/main.zig"),
         .target = target,
@@ -26,9 +60,10 @@ pub fn build(b: *std.Build) void {
     const run_step = b.step("run", "Run the application");
     run_step.dependOn(&run_cmd.step);
 
-    // Tests are rooted at src/main.zig which @import's other source files.
-    // When adding tests in separate files, import them from main.zig or add
-    // dedicated addTest targets here to ensure they are picked up by `zig build test`.
+    // ─── テストステップ ───────────────────────────────────────
+    const test_step = b.step("test", "Run unit tests");
+
+    // main.zig tests
     const test_mod = b.createModule(.{
         .root_source_file = b.path("src/main.zig"),
         .target = target,
@@ -40,17 +75,9 @@ pub fn build(b: *std.Build) void {
     });
 
     const run_exe_unit_tests = b.addRunArtifact(exe_unit_tests);
-
-    const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&run_exe_unit_tests.step);
 
     // Size utility tests
-    const size_util_mod = b.createModule(.{
-        .root_source_file = b.path("src/utils/size.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-
     const size_test_mod = b.createModule(.{
         .root_source_file = b.path("tests/size_test.zig"),
         .target = target,
@@ -66,12 +93,6 @@ pub fn build(b: *std.Build) void {
     test_step.dependOn(&run_size_tests.step);
 
     // Time utility tests
-    const time_util_mod = b.createModule(.{
-        .root_source_file = b.path("src/utils/time.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-
     const time_test_mod = b.createModule(.{
         .root_source_file = b.path("tests/time_test.zig"),
         .target = target,
@@ -87,12 +108,6 @@ pub fn build(b: *std.Build) void {
     test_step.dependOn(&run_time_tests.step);
 
     // Docker types tests
-    const docker_types_mod = b.createModule(.{
-        .root_source_file = b.path("src/docker/types.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-
     const docker_types_test_mod = b.createModule(.{
         .root_source_file = b.path("tests/docker_types_test.zig"),
         .target = target,
@@ -108,12 +123,6 @@ pub fn build(b: *std.Build) void {
     test_step.dependOn(&run_docker_types_tests.step);
 
     // Docker client tests
-    const docker_client_mod = b.createModule(.{
-        .root_source_file = b.path("src/docker/client.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-
     const docker_client_test_mod = b.createModule(.{
         .root_source_file = b.path("tests/client_test.zig"),
         .target = target,
@@ -129,14 +138,6 @@ pub fn build(b: *std.Build) void {
     test_step.dependOn(&run_docker_client_tests.step);
 
     // Docker API tests
-    const docker_api_mod = b.createModule(.{
-        .root_source_file = b.path("src/docker/api.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-    docker_api_mod.addImport("client.zig", docker_client_mod);
-    docker_api_mod.addImport("types.zig", docker_types_mod);
-
     const docker_api_test_mod = b.createModule(.{
         .root_source_file = b.path("tests/api_test.zig"),
         .target = target,
@@ -150,4 +151,73 @@ pub fn build(b: *std.Build) void {
 
     const run_docker_api_tests = b.addRunArtifact(docker_api_tests);
     test_step.dependOn(&run_docker_api_tests.step);
+
+    // CLI commands tests
+    const cli_commands_mod = b.createModule(.{
+        .root_source_file = b.path("src/cli/commands.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+
+    const cli_commands_test_mod = b.createModule(.{
+        .root_source_file = b.path("tests/commands_test.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    cli_commands_test_mod.addImport("../src/cli/commands.zig", cli_commands_mod);
+
+    const cli_commands_tests = b.addTest(.{
+        .root_module = cli_commands_test_mod,
+    });
+
+    const run_cli_commands_tests = b.addRunArtifact(cli_commands_tests);
+    test_step.dependOn(&run_cli_commands_tests.step);
+
+    // CLI table tests
+    const cli_table_mod = b.createModule(.{
+        .root_source_file = b.path("src/cli/table.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    cli_table_mod.addImport("../docker/types.zig", docker_types_mod);
+    cli_table_mod.addImport("../utils/size.zig", size_util_mod);
+
+    const cli_table_test_mod = b.createModule(.{
+        .root_source_file = b.path("tests/table_test.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    cli_table_test_mod.addImport("../src/cli/table.zig", cli_table_mod);
+    cli_table_test_mod.addImport("../src/docker/types.zig", docker_types_mod);
+
+    const cli_table_tests = b.addTest(.{
+        .root_module = cli_table_test_mod,
+    });
+
+    const run_cli_table_tests = b.addRunArtifact(cli_table_tests);
+    test_step.dependOn(&run_cli_table_tests.step);
+
+    // CLI json_output tests
+    const cli_json_mod = b.createModule(.{
+        .root_source_file = b.path("src/cli/json_output.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    cli_json_mod.addImport("../docker/types.zig", docker_types_mod);
+
+    const cli_json_test_mod = b.createModule(.{
+        .root_source_file = b.path("tests/json_output_test.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    cli_json_test_mod.addImport("../src/cli/json_output.zig", cli_json_mod);
+    cli_json_test_mod.addImport("../src/docker/types.zig", docker_types_mod);
+
+    const cli_json_tests = b.addTest(.{
+        .root_module = cli_json_test_mod,
+    });
+
+    const run_cli_json_tests = b.addRunArtifact(cli_json_tests);
+    test_step.dependOn(&run_cli_json_tests.step);
+
 }
