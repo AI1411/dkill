@@ -10,6 +10,8 @@ pub const SelectableItem = struct {
     deletable: bool,
     /// 選択状態
     selected: bool,
+    /// 表示カラー用ステータス
+    status: @import("render.zig").ItemStatus = .normal,
 };
 
 /// チェックボックス付きリストウィジェット。
@@ -89,7 +91,15 @@ pub const List = struct {
         const render = @import("render.zig");
         const end = @min(self.scroll_offset + self.visible_rows, self.items.len);
         for (self.items[self.scroll_offset..end], self.scroll_offset..) |item, i| {
-            try render.drawListItem(writer, item.selected, i == self.cursor, item.label, cols);
+            try render.drawListItem(
+                writer,
+                item.selected,
+                i == self.cursor,
+                item.deletable,
+                item.status,
+                item.label,
+                cols,
+            );
         }
     }
 };
