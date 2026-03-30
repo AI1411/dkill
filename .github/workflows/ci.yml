@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Zig 0.15.x
+        uses: mlugg/setup-zig@v1
+        with:
+          version: 0.15.0
+
+      - name: Build
+        run: zig build
+
+      - name: Run unit tests
+        run: SKIP_DOCKER_TESTS=1 zig build test
+
+      - name: Build release (ReleaseSmall)
+        run: zig build -Doptimize=ReleaseSmall
+
+      - name: Check binary size (< 1MB)
+        run: |
+          SIZE=$(stat -c%s zig-out/bin/dkill)
+          echo "Binary size: ${SIZE} bytes"
+          if [ "${SIZE}" -ge 1048576 ]; then
+            echo "ERROR: Binary size ${SIZE} bytes exceeds 1MB limit"
+            exit 1
+          fi
+          echo "OK: Binary size is within 1MB limit"
