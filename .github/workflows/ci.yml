@@ -16,7 +16,7 @@ jobs:
       - name: Install Zig 0.15.x
         uses: mlugg/setup-zig@v1
         with:
-          version: 0.15.0
+          version: 0.15.2
 
       - name: Build
         run: zig build
@@ -29,7 +29,7 @@ jobs:
 
       - name: Check binary size (< 1MB)
         run: |
-          SIZE=$(stat -c%s zig-out/bin/dkill)
+          SIZE=$(stat -c%s zig-out/bin/dk)
           echo "Binary size: ${SIZE} bytes"
           if [ "${SIZE}" -ge 1048576 ]; then
             echo "ERROR: Binary size ${SIZE} bytes exceeds 1MB limit"
