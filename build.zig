@@ -127,4 +127,27 @@ pub fn build(b: *std.Build) void {
 
     const run_docker_client_tests = b.addRunArtifact(docker_client_tests);
     test_step.dependOn(&run_docker_client_tests.step);
+
+    // Docker API tests
+    const docker_api_mod = b.createModule(.{
+        .root_source_file = b.path("src/docker/api.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    docker_api_mod.addImport("client.zig", docker_client_mod);
+    docker_api_mod.addImport("types.zig", docker_types_mod);
+
+    const docker_api_test_mod = b.createModule(.{
+        .root_source_file = b.path("tests/api_test.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    docker_api_test_mod.addImport("../src/docker/api.zig", docker_api_mod);
+
+    const docker_api_tests = b.addTest(.{
+        .root_module = docker_api_test_mod,
+    });
+
+    const run_docker_api_tests = b.addRunArtifact(docker_api_tests);
+    test_step.dependOn(&run_docker_api_tests.step);
 }
